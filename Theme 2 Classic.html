@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRO-AM LEADERBOARD</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    
+    <style>
+        :root {
+            --turf-green: #1a472a;
+            --deep-forest: #0d2415;
+            --gold: #d4af37;
+            --off-white: #f8f9fa;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050a07;
+            font-family: 'Montserrat', sans-serif;
+            cursor: none;
+        }
+
+        /* Fullscreen Launcher Overlay */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--deep-forest);
+            color: var(--gold);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            cursor: pointer;
+            border: 5px solid var(--gold);
+        }
+
+        /* Main Clubhouse Screen */
+        .clubhouse-screen {
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle, var(--turf-green) 0%, var(--deep-forest) 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            /* Wood Grain Frame Effect */
+            border: 40px solid #2c1b0e;
+            box-sizing: border-box;
+            box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+        }
+
+        /* Professional "Live" Badge */
+        .live-badge {
+            position: absolute;
+            top: 60px;
+            left: 80px;
+            background: #cc0000;
+            color: white;
+            padding: 5px 20px;
+            font-weight: 800;
+            border-radius: 4px;
+            letter-spacing: 2px;
+            font-size: 1.2rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            animation: blink 2s infinite;
+        }
+
+        .header-title {
+            position: absolute;
+            top: 60px;
+            color: var(--gold);
+            font-family: 'Bebas Neue', cursive;
+            font-size: 3rem;
+            letter-spacing: 8px;
+            text-transform: uppercase;
+        }
+
+        #count {
+            font-family: 'Bebas Neue', cursive;
+            font-size: 55vh;
+            color: var(--off-white);
+            margin: 0;
+            line-height: 0.8;
+            text-shadow: 10px 20px 0px rgba(0,0,0,0.4);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .label {
+            color: var(--gold);
+            font-size: 6vh;
+            font-weight: 300;
+            letter-spacing: 25px;
+            text-transform: uppercase;
+            margin-top: 10px;
+            border-top: 2px solid var(--gold);
+            padding-top: 10px;
+        }
+
+        /* Premium Golf Ball */
+        .ball {
+            position: absolute;
+            width: 7vh;
+            height: 7vh;
+            background: radial-gradient(circle at 35% 35%, #ffffff 0%, #e0e0e0 50%, #bcbcbc 100%);
+            border-radius: 50%;
+            bottom: -15vh;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.6);
+        }
+
+        /* Animations */
+        @keyframes blink { 50% { opacity: 0.6; } }
+        
+        .animate-shot { animation: proShot 1.2s ease-out forwards; }
+        
+        @keyframes proShot {
+            0% { bottom: -15vh; opacity: 1; transform: translateX(-50%) scale(0.4) rotate(0deg); }
+            100% { bottom: 120vh; opacity: 0; transform: translateX(-50%) scale(3) rotate(360deg); }
+        }
+
+        .score-bump { 
+            color: var(--gold) !important;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body onclick="initDisplay()">
+
+    <div id="overlay">
+        <h2 style="font-family: 'Bebas Neue'; font-size: 4rem;">MEMBERS ONLY</h2>
+        <p>TAP TO UNLOCK LEADERBOARD</p>
+    </div>
+
+    <div class="clubhouse-screen">
+        <div class="live-badge">LIVE</div>
+        <div class="header-title">Clubhouse Stroke Monitor</div>
+        
+        <h1 id="count">0</h1>
+        <div class="label">Total Strokes</div>
+        
+        <div id="golf-ball" class="ball"></div>
+    </div>
+
+    <script>
+        // --- MQTT Configuration ---
+        const MQTT_HOST = "broker.hivemq.com";
+        const MQTT_PORT = 8000; 
+        const MQTT_TOPIC = "golf/stroke/count";
+        const CLIENT_ID = "pro_golf_" + Math.random().toString(16).slice(2, 10);
+
+        const countEl = document.getElementById('count');
+        const ballEl = document.getElementById('golf-ball');
+        const overlay = document.getElementById('overlay');
+
+        function initDisplay() {
+            // Fullscreen
+            const doc = document.documentElement;
+            if (doc.requestFullscreen) doc.requestFullscreen();
+            overlay.style.display = 'none';
+        }
+
+        const client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, CLIENT_ID);
+
+        client.onMessageArrived = (msg) => {
+            try {
+                const data = JSON.parse(msg.payloadString);
+                updateScore(data.count);
+            } catch(e) { console.error("Format Error"); }
+        };
+
+        client.connect({
+            onSuccess: () => {
+                client.subscribe(MQTT_TOPIC);
+                console.log("Clubhouse Link Active");
+            },
+            useSSL: false
+        });
+
+        function updateScore(val) {
+            countEl.innerText = val;
+            
+            // Visual feedback
+            countEl.classList.add('score-bump');
+            setTimeout(() => countEl.classList.remove('score-bump'), 400);
+
+            // Ball animation
+            ballEl.classList.remove('animate-shot');
+            void ballEl.offsetWidth; 
+            ballEl.classList.add('animate-shot');
+        }
+    </script>
+</body>
+</html>

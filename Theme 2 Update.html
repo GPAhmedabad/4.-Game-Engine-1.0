@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRO-AM LEADERBOARD SYSTEM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@300;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    
+    <style>
+        :root {
+            --turf-green: #1a472a;
+            --deep-forest: #0d2415;
+            --gold: #d4af37;
+            --off-white: #f8f9fa;
+            --wood: #2c1b0e;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background-color: #050a07;
+            font-family: 'Montserrat', sans-serif;
+            color: var(--off-white);
+        }
+
+        /* --- View Containers --- */
+        .view {
+            display: none;
+            width: 100vw; height: 100vh;
+            background: radial-gradient(circle, var(--turf-green) 0%, var(--deep-forest) 100%);
+            border: 30px solid var(--wood);
+            box-sizing: border-box;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .view.active { display: flex; }
+
+        /* --- Lobby Styles --- */
+        .lobby-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .lobby-header h1 {
+            font-family: 'Bebas Neue';
+            font-size: 5rem;
+            color: var(--gold);
+            letter-spacing: 10px;
+            margin: 0;
+        }
+
+        .ball-grid {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .ball-card {
+            background: rgba(0,0,0,0.3);
+            border: 2px solid var(--gold);
+            padding: 40px;
+            width: 250px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .ball-card:hover {
+            background: var(--gold);
+            color: var(--deep-forest);
+            transform: translateY(-10px);
+        }
+
+        .ball-card .icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .ball-card h3 {
+            font-family: 'Bebas Neue';
+            font-size: 2rem;
+            margin: 0;
+            letter-spacing: 2px;
+        }
+
+        .ball-stats {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        /* --- Display Styles --- */
+        .header-title {
+            position: absolute;
+            top: 40px;
+            color: var(--gold);
+            font-family: 'Bebas Neue';
+            font-size: 3rem;
+            letter-spacing: 8px;
+        }
+
+        #count {
+            font-family: 'Bebas Neue';
+            font-size: 50vh;
+            line-height: 0.8;
+            text-shadow: 10px 20px 0px rgba(0,0,0,0.4);
+            margin: 0;
+        }
+
+        .label {
+            color: var(--gold);
+            font-size: 6vh;
+            font-weight: 300;
+            letter-spacing: 20px;
+            text-transform: uppercase;
+            border-top: 2px solid var(--gold);
+            padding-top: 10px;
+        }
+
+        /* --- Animation Elements --- */
+        .ball-anim {
+            position: absolute;
+            width: 7vh; height: 7vh;
+            background: radial-gradient(circle at 35% 35%, #fff 0%, #bcbcbc 100%);
+            border-radius: 50%;
+            bottom: -15vh; left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+        }
+
+        .animate-shot { animation: proShot 0.4s ease-out forwards; }
+        @keyframes proShot {
+            0% { bottom: -15vh; opacity: 1; transform: translateX(-50%) scale(0.5); }
+            100% { bottom: 120vh; opacity: 0; transform: translateX(-50%) scale(2.0); }
+        }
+
+        .score-bump { transform: scale(1.15); color: var(--gold); }
+
+        /* --- Reception Styles --- */
+        .reception-container {
+            background: rgba(0,0,0,0.4);
+            border: 2px solid var(--gold);
+            padding: 50px;
+            border-radius: 15px;
+            text-align: center;
+            width: 500px;
+        }
+
+        .reception-container h2 {
+            font-family: 'Bebas Neue';
+            font-size: 3rem;
+            color: var(--gold);
+            margin-bottom: 30px;
+        }
+
+        .reception-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid var(--gold);
+            color: white;
+            font-size: 2rem;
+            font-family: 'Montserrat';
+            text-align: center;
+            margin-bottom: 40px;
+            outline: none;
+        }
+
+        .ball-select {
+            width: 100%;
+            background: rgba(0,0,0,0.6);
+            border: 2px solid var(--gold);
+            color: var(--gold);
+            font-size: 1.5rem;
+            font-family: 'Bebas Neue';
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 30px;
+            outline: none;
+            border-radius: 5px;
+            cursor: pointer;
+            letter-spacing: 2px;
+        }
+
+        .ball-select option {
+            background: #0d2415;
+            color: white;
+            font-family: 'Montserrat';
+        }
+
+        .assign-btn {
+            background: var(--gold);
+            color: var(--deep-forest);
+            border: none;
+            padding: 15px 40px;
+            font-family: 'Bebas Neue';
+            font-size: 1.8rem;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .assign-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(212, 175, 55, 0.6);
+        }
+
+        .status-msg {
+            margin-top: 20px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        /* --- Dashboard Nav Styles --- */
+        .dashboard-nav {
+            position: absolute;
+            top: 60px;
+            display: flex;
+            gap: 20px;
+            z-index: 10;
+        }
+
+        .nav-btn {
+            background: rgba(0,0,0,0.5);
+            border: 2px solid var(--gold);
+            color: var(--gold);
+            font-family: 'Bebas Neue';
+            font-size: 1.5rem;
+            padding: 10px 40px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            border-radius: 5px;
+            min-width: 180px;
+            text-align: center;
+        }
+
+        .nav-btn:hover {
+            background: var(--gold);
+            color: var(--deep-forest);
+            box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+        }
+
+        .nav-btn.active {
+            background: var(--gold);
+            color: var(--deep-forest);
+        }
+    </style>
+</head>
+<body>
+
+    <div id="lobby-view" class="view active">
+        <div class="dashboard-nav">
+            <div class="nav-btn" onclick="showView('reception-view')">RECEPTION</div>
+            <div class="nav-btn active" onclick="showView('lobby-view')">HOME</div>
+            <div class="nav-btn" onclick="showView('display-view')">DASHBOARD</div>
+        </div>
+
+        <div class="lobby-header" style="margin-top: 100px;">
+            <h1>SELECT YOUR BALL</h1>
+            <p id="total-count">CONNECTING TO BALL SERVER...</p>
+        </div>
+        
+        <div id="ball-list" class="ball-grid">
+            <!-- Dynamically filled -->
+        </div>
+    </div>
+
+    <div id="reception-view" class="view">
+        <div class="dashboard-nav">
+            <div class="nav-btn active" onclick="showView('reception-view')">RECEPTION</div>
+            <div class="nav-btn" onclick="showView('lobby-view')">HOME</div>
+            <div class="nav-btn" onclick="showView('display-view')">DASHBOARD</div>
+        </div>
+
+        <div class="reception-container">
+            <h2>NEW PLAYER REGISTRATION</h2>
+            <p style="color:rgba(255,255,255,0.5); margin:0 0 20px; font-size:0.85rem; letter-spacing:2px;">ENTER NAME THEN SCAN BALL ON ASSIGNER</p>
+            <input type="text" id="player-name" class="reception-input" placeholder="ENTER PLAYER NAME" autocomplete="off">
+            <button class="assign-btn" onclick="assignBall()">ASSIGN BALL</button>
+            <p id="assign-status" class="status-msg"></p>
+        </div>
+    </div>
+
+    <div id="display-view" class="view">
+        <div id="active-id-label" class="header-title">DEVICE: --</div>
+        <h1 id="count">0</h1>
+        <div class="label">TOTAL STROKES</div>
+        <div id="golf-ball-obj" class="ball-anim"></div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const MQTT_HOST = "broker.hivemq.com";
+        const MQTT_PORT = 8000; 
+        const MQTT_TOPIC = "golf/stroke/count";
+        const API_URL = "http://127.0.0.1:5002/balls";
+        const ASSIGN_TOPIC = "golf/player/assign/v2"; // New topic for assignments
+        const CLIENT_ID = "pro_clubhouse_" + Math.random().toString(16).slice(2, 10);
+
+        let activeBallId = null;
+        let discoveredBalls = {}; 
+        let verifiedDevices = new Set(); // Devices confirmed by the API
+        let pendingPlayerName = null; // Name waiting to be linked to a ball
+
+        const client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, CLIENT_ID);
+
+        // --- MQTT Handlers ---
+        client.onMessageArrived = (msg) => {
+            try {
+                const payloadStr = msg.payloadString;
+
+                // Handle NFC scan result from assigner device (ID4)
+                if (msg.destinationName === "4/nfc-light/controller/res") {
+                    if (pendingPlayerName) {
+                        const status = document.getElementById('assign-status');
+
+                        // Send assignment to Python backend via MQTT
+                        const assignPayload = JSON.stringify({
+                            name: pendingPlayerName,
+                            scanned_data: payloadStr  // NFC tag content (e.g. device ID string)
+                        });
+                        const assignMsg = new Paho.MQTT.Message(assignPayload);
+                        assignMsg.destinationName = ASSIGN_TOPIC;
+                        client.send(assignMsg);
+
+                        status.innerText = `✅ ${pendingPlayerName.toUpperCase()} REGISTERED! SCANNING: "${payloadStr}"...`;
+                        status.style.color = "#00ff00";
+                        document.getElementById('player-name').value = "";
+                        pendingPlayerName = null;
+                    }
+                    return;
+                }
+
+                // Handle JSON stroke data
+                const data = JSON.parse(payloadStr);
+                const id = data.device;
+                const count = data.count;
+
+                // 1. Only process if the API has seen this device (prevents public ghosts)
+                if (!verifiedDevices.has(id)) return;
+
+                // 2. Update discovery record in real-time (preserve player_name)
+                if (!discoveredBalls[id]) {
+                    discoveredBalls[id] = { device: id, count: count, player_name: "UNASSIGNED" };
+                } else {
+                    discoveredBalls[id].count = count;
+                }
+
+                // 2. If in Lobby, refresh the grid immediately
+                if (!activeBallId) {
+                    renderLobby();
+                } 
+                // 3. If this is our selected ball, update display
+                else if (id === activeBallId) {
+                    updateScoreDisplay(count);
+                }
+            } catch(e) { console.log("JSON Parse Error"); }
+        };
+
+        client.connect({
+            onSuccess: () => {
+                client.subscribe(MQTT_TOPIC);
+                client.subscribe("4/nfc-light/controller/res"); // Listen for NFC scan result
+                console.log("MQTT Socket Connected");
+            }
+        });
+
+        // Start discovery immediately (don't wait for MQTT)
+        startDiscovery();
+
+        // --- Navigation ---
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            
+            // Sync nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if(btn.innerText.toLowerCase() === viewId.split('-')[0].toLowerCase()) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+
+        // --- Reception Logic (100% MQTT - no HTTP fetch needed) ---
+        function assignBall() {
+            const name = document.getElementById('player-name').value.trim();
+            const status = document.getElementById('assign-status');
+            
+            if (!name) {
+                status.innerText = "PLEASE ENTER A PLAYER NAME FIRST!";
+                status.style.color = "#ff4444";
+                return;
+            }
+
+            // Store name locally — no HTTP needed
+            pendingPlayerName = name;
+            status.innerText = `READY ✦ SCAN BALL FOR "${name.toUpperCase()}" ON ASSIGNER...`;
+            status.style.color = "var(--gold)";
+
+            // Put Device ID 4 (assigner) into Listening/Read Mode via MQTT
+            const topic = "4/nfc-light/controller/cmd";
+            const payload = new Uint8Array(1);
+            payload[0] = 0x07; // CMD_LISTEN
+            const message = new Paho.MQTT.Message(payload);
+            message.destinationName = topic;
+            client.send(message);
+        }
+
+        // --- Logic Functions ---
+        async function startDiscovery() {
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                const totalLabel = document.getElementById('total-count');
+                totalLabel.style.color = "var(--gold)"; 
+                
+                discoveredBalls = {};
+                verifiedDevices.clear();
+
+                data.forEach(ball => {
+                    discoveredBalls[ball.device] = ball;
+                    verifiedDevices.add(ball.device);
+                });
+                
+                renderLobby();
+                
+                // Refresh every 500ms while in lobby
+                if (!activeBallId) {
+                    setTimeout(startDiscovery, 500);
+                }
+            } catch (e) {
+                console.error("API Discovery Error:", e);
+                document.getElementById('total-count').innerText = "SYSTEM OFFLINE: WAITING FOR BALL SERVER...";
+                document.getElementById('total-count').style.color = "#ff4444";
+                setTimeout(startDiscovery, 2000);
+            }
+        }
+
+        function renderLobby() {
+            const list = document.getElementById('ball-list');
+            const totalLabel = document.getElementById('total-count');
+            const keys = Object.keys(discoveredBalls);
+            
+            totalLabel.innerText = `TOTAL DEVICES ONLINE: ${keys.length}`;
+            list.innerHTML = '';
+
+            keys.forEach(id => {
+                const displayName = id.replace(/^esp32c3-/i, '').toUpperCase();
+                const playerName = discoveredBalls[id].player_name || "UNASSIGNED";
+                const card = document.createElement('div');
+                card.className = 'ball-card';
+                const assigner = discoveredBalls[id].assigner || "SYSTEM";
+                card.innerHTML = `
+                    <div class="icon">⛳</div>
+                    <h3>${displayName}</h3>
+                    <div class="player-label" style="color:var(--gold); font-size:0.8rem; margin-top: -10px; margin-bottom: 2px;">${playerName}</div>
+                    <div style="font-size: 0.6rem; color: #888; margin-bottom: 8px;">BY: ${assigner}</div>
+                    <div class="ball-stats">CURRENT: ${discoveredBalls[id].count}</div>
+                `;
+                card.onclick = () => selectBall(id);
+                list.appendChild(card);
+            });
+        }
+
+        function selectBall(id) {
+            activeBallId = id;
+            const displayName = id.replace(/^esp32c3-/i, '').toUpperCase();
+            const playerName = discoveredBalls[id].player_name || "GUEST";
+            document.getElementById('active-id-label').innerText = `${displayName} | ${playerName}`;
+            document.getElementById('count').innerText = discoveredBalls[id].count;
+            
+            // Transition Views
+            document.getElementById('lobby-view').classList.remove('active');
+            document.getElementById('display-view').classList.add('active');
+
+            // Fullscreen trigger
+            const doc = document.documentElement;
+            if (doc.requestFullscreen) doc.requestFullscreen();
+        }
+
+        function updateScoreDisplay(val) {
+            const countEl = document.getElementById('count');
+            const ballEl = document.getElementById('golf-ball-obj');
+
+            countEl.innerText = val;
+            
+            // Visual Pop (Faster)
+            countEl.style.transition = "none";
+            countEl.classList.add('score-bump');
+            setTimeout(() => {
+                countEl.style.transition = "all 0.15s ease";
+                countEl.classList.remove('score-bump');
+            }, 150);
+
+            // Ball Flight
+            ballEl.classList.remove('animate-shot');
+            void ballEl.offsetWidth; // Force reflow
+            ballEl.classList.add('animate-shot');
+        }
+    </script>
+
+</body>
+</html>

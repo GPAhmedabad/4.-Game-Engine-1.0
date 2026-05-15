@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOLF LIVE SCORE</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <style>
+        :root {
+            --bg-blue: #0051ff;
+            --dark-blue: #001a4d;
+            --accent: #ffffff;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Arial Black', sans-serif;
+            cursor: none; /* Hides cursor for that kiosk feel */
+        }
+
+        /* Initial Start Overlay (Required for Fullscreen Permission) */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #111;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+        }
+
+        .main-screen {
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, var(--bg-blue), var(--dark-blue));
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        #count {
+            font-size: 50vh; /* Scaled to height */
+            color: var(--accent);
+            margin: 0;
+            line-height: 1;
+            text-shadow: 0 15px 30px rgba(0,0,0,0.5);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .label {
+            color: var(--accent);
+            font-size: 8vh;
+            letter-spacing: 20px;
+            text-transform: uppercase;
+            opacity: 0.8;
+            margin-top: -20px;
+        }
+
+        /* Golf Ball Animation */
+        .ball {
+            position: absolute;
+            width: 8vh;
+            height: 8vh;
+            background: radial-gradient(circle at 30% 30%, #fff, #bbb);
+            border-radius: 50%;
+            bottom: -15vh;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+        }
+
+        .animate-shot {
+            animation: shoot 1s ease-out forwards;
+        }
+
+        @keyframes shoot {
+            0% { bottom: -15vh; opacity: 1; transform: translateX(-50%) scale(0.5); }
+            40% { transform: translateX(-50%) scale(1.3); }
+            100% { bottom: 120vh; opacity: 0; transform: translateX(-50%) scale(2.5); }
+        }
+
+        .bump { transform: scale(1.1); }
+    </style>
+</head>
+<body onclick="launchFullscreen()">
+
+    <div id="overlay">Click to Launch Full Screen</div>
+
+    <div class="main-screen">
+        <h1 id="count">0</h1>
+        <div class="label">Shots</div>
+        <div id="golf-ball" class="ball"></div>
+    </div>
+
+    <script>
+        // --- MQTT Config ---
+        const MQTT_HOST = "broker.hivemq.com";
+        const MQTT_PORT = 8000; 
+        const MQTT_TOPIC = "golf/stroke/count";
+        const CLIENT_ID = "golf_display_" + Math.random().toString(16).slice(2, 10);
+
+        const countEl = document.getElementById('count');
+        const ballEl = document.getElementById('golf-ball');
+        const overlay = document.getElementById('overlay');
+
+        // Fullscreen Logic
+        function launchFullscreen() {
+            const doc = document.documentElement;
+            if (doc.requestFullscreen) doc.requestFullscreen();
+            else if (doc.mozRequestFullScreen) doc.mozRequestFullScreen();
+            else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
+            else if (doc.msRequestFullscreen) doc.msRequestFullscreen();
+            
+            overlay.style.display = 'none'; // Hide overlay after clicking
+        }
+
+        // MQTT Client Setup
+        const client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, CLIENT_ID);
+
+        client.onMessageArrived = (msg) => {
+            try {
+                const data = JSON.parse(msg.payloadString);
+                triggerUpdate(data.count);
+            } catch(e) { console.log("Data Error"); }
+        };
+
+        client.connect({
+            onSuccess: () => {
+                client.subscribe(MQTT_TOPIC);
+                console.log("Connected");
+            },
+            useSSL: false
+        });
+
+        function triggerUpdate(val) {
+            // Update Text
+            countEl.innerText = val;
+            
+            // Pop Animation
+            countEl.classList.add('bump');
+            setTimeout(() => countEl.classList.remove('bump'), 200);
+
+            // Ball Animation
+            ballEl.classList.remove('animate-shot');
+            void ballEl.offsetWidth; // Reset animation
+            ballEl.classList.add('animate-shot');
+        }
+    </script>
+</body>
+</html>
