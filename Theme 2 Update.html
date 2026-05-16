@@ -107,44 +107,278 @@
             letter-spacing: 8px;
         }
 
-        #count {
+        /* --- T-Point Scan Cards --- */
+        .tpoint-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            width: 95%;
+            margin-top: 120px;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: 75vh;
+        }
+
+        .tpoint-card {
+            background: linear-gradient(180deg, #1a2f21 0%, #0a110b 100%);
+            border: 1px solid rgba(212,175,55,0.5);
+            border-radius: 8px;
+            padding: 24px;
+            width: 340px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            transition: all 0.3s ease;
+            animation: cardAppear 0.4s ease-out forwards;
+            position: relative;
+        }
+
+        .tpoint-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--gold);
+            box-shadow: 0 20px 50px rgba(212,175,55,0.2);
+        }
+
+        .tpoint-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(212,175,55,0.2);
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+        }
+
+        .tpoint-station-label {
             font-family: 'Bebas Neue';
-            font-size: 50vh;
-            line-height: 0.8;
-            text-shadow: 10px 20px 0px rgba(0,0,0,0.4);
-            margin: 0;
-        }
-
-        .label {
+            font-size: 1rem;
+            letter-spacing: 3px;
             color: var(--gold);
-            font-size: 6vh;
-            font-weight: 300;
-            letter-spacing: 20px;
+            display: flex;
+            align-items: center;
+            opacity: 0.8;
+        }
+
+        .tpoint-time {
+            font-family: 'Montserrat';
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: rgba(255,255,255,0.4);
+        }
+
+        .tpoint-player {
+            font-family: 'Bebas Neue';
+            font-size: 3.5rem;
+            color: var(--gold);
+            text-align: center;
+            letter-spacing: 5px;
+            margin: 15px 0;
             text-transform: uppercase;
-            border-top: 2px solid var(--gold);
-            padding-top: 10px;
+            line-height: 1;
         }
 
-        /* --- Animation Elements --- */
-        .ball-anim {
+        .tpoint-score-box {
+            background: rgba(212,175,55,0.05);
+            border: 1px solid rgba(212,175,55,0.2);
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
+            position: relative;
+        }
+
+        .tpoint-score-label {
+            font-family: 'Montserrat';
+            font-size: 0.65rem;
+            font-weight: 900;
+            letter-spacing: 4px;
+            color: rgba(255,255,255,0.3);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .tpoint-score-value {
+            font-family: 'Bebas Neue';
+            font-size: 5.5rem;
+            color: #fff;
+            line-height: 1;
+            margin: 0;
+            text-shadow: 0 0 30px rgba(255,255,255,0.1);
+        }
+
+        .tpoint-ball-badge {
             position: absolute;
-            width: 7vh; height: 7vh;
-            background: radial-gradient(circle at 35% 35%, #fff 0%, #bcbcbc 100%);
+            bottom: 10px;
+            right: 15px;
+            font-family: 'Bebas Neue';
+            font-size: 0.8rem;
+            color: rgba(212,175,55,0.4);
+            letter-spacing: 2px;
+        }
+
+        .tpoint-status-dot {
+            width: 8px; height: 8px;
             border-radius: 50%;
-            bottom: -15vh; left: 50%;
-            transform: translateX(-50%);
+            background: var(--gold);
+            margin-right: 10px;
+            box-shadow: 0 0 10px var(--gold);
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes goldPulse {
+            0%   { box-shadow: 0 0 0px rgba(212,175,55,0); }
+            50%  { box-shadow: 0 0 100px rgba(212,175,55,0.4); }
+            100% { box-shadow: 0 0 0px rgba(212,175,55,0); }
+        }
+
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+
+        /* --- Goal Celebration Styles --- */
+        #goal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle, rgba(212,175,55,0.2) 0%, rgba(0,0,0,0.95) 100%);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(20px);
+            animation: overlayFadeIn 0.5s ease-out forwards;
+        }
+
+        .goal-text {
+            font-family: 'Bebas Neue';
+            font-size: 15rem;
+            color: #fff;
+            text-shadow: 0 0 50px var(--gold), 0 0 100px var(--gold);
+            letter-spacing: 20px;
+            margin: 0;
+            animation: goalScale 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) infinite;
             opacity: 0;
+            transition: opacity 0.5s ease-in;
         }
 
-        .animate-shot { animation: proShot 0.4s ease-out forwards; }
-        @keyframes proShot {
-            0% { bottom: -15vh; opacity: 1; transform: translateX(-50%) scale(0.5); }
-            100% { bottom: 120vh; opacity: 0; transform: translateX(-50%) scale(2.0); }
+        .goal-player-name {
+            font-family: 'Bebas Neue';
+            font-size: 5rem;
+            color: var(--gold);
+            letter-spacing: 10px;
+            margin-top: -30px;
+            text-transform: uppercase;
+            opacity: 0;
+            transition: opacity 0.5s ease-in;
         }
 
-        .score-bump { transform: scale(1.15); color: var(--gold); }
+        #goal-overlay.content-active .goal-text,
+        #goal-overlay.content-active .goal-player-name {
+            opacity: 1;
+        }
 
-        /* --- Reception Styles --- */
+        .goal-confetti {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+
+        /* --- Scoring Display in Goal --- */
+        .goal-scoring-tally {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(212,175,55,0.3);
+            border-radius: 12px;
+            padding: 30px;
+            width: 500px;
+            margin-top: 40px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease-out;
+            pointer-events: none;
+        }
+
+        .goal-scoring-tally.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @keyframes slideUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .tally-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            font-family: 'Montserrat';
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+        }
+
+        .tally-label { color: rgba(255,255,255,0.6); font-weight: 700; }
+        .tally-value { font-family: 'Bebas Neue'; font-size: 2rem; }
+        .val-plus { color: #2ecc71; }
+        .val-minus { color: #ff6b6b; }
+
+        .tally-divider {
+            height: 1px;
+            background: rgba(212,175,55,0.3);
+            margin: 20px 0;
+        }
+
+        .tally-total {
+            font-size: 1.8rem;
+            color: #fff;
+        }
+
+        #goal-total-val {
+            font-size: 4rem;
+            color: var(--gold);
+            text-shadow: 0 0 20px var(--gold);
+        }
+
+        @keyframes overlayFadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes goalScale {
+            0%, 100% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.1); filter: brightness(1.5); }
+        }
+
+        .winner-card-celebrate {
+            position: fixed !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) scale(1.8) !important;
+            z-index: 10001 !important;
+            box-shadow: 0 0 100px rgba(212,175,55,1) !important;
+            border-width: 3px !important;
+            animation: winnerPulse 1s infinite alternate !important;
+        }
+
+        @keyframes winnerPulse {
+            0% { box-shadow: 0 0 50px rgba(212,175,55,0.5); }
+            100% { box-shadow: 0 0 150px rgba(212,175,55,1); }
+        }
+
+        .card-exit {
+            animation: cardShrink 0.8s cubic-bezier(0.6, -0.28, 0.735, 0.045) forwards !important;
+            pointer-events: none;
+        }
+
+        @keyframes cardShrink {
+            0% { transform: scale(1); opacity: 1; filter: blur(0); }
+            100% { transform: scale(0); opacity: 0; filter: blur(20px); }
+        }
+
+        /* --- Existing Reception Styles --- */
         .reception-container {
             background: rgba(0,0,0,0.4);
             border: 2px solid var(--gold);
@@ -172,28 +406,6 @@
             text-align: center;
             margin-bottom: 40px;
             outline: none;
-        }
-
-        .ball-select {
-            width: 100%;
-            background: rgba(0,0,0,0.6);
-            border: 2px solid var(--gold);
-            color: var(--gold);
-            font-size: 1.5rem;
-            font-family: 'Bebas Neue';
-            text-align: center;
-            padding: 10px;
-            margin-bottom: 30px;
-            outline: none;
-            border-radius: 5px;
-            cursor: pointer;
-            letter-spacing: 2px;
-        }
-
-        .ball-select option {
-            background: #0d2415;
-            color: white;
-            font-family: 'Montserrat';
         }
 
         .assign-btn {
@@ -292,10 +504,44 @@
     </div>
 
     <div id="display-view" class="view">
-        <div id="active-id-label" class="header-title">DEVICE: --</div>
-        <h1 id="count">0</h1>
-        <div class="label">TOTAL STROKES</div>
-        <div id="golf-ball-obj" class="ball-anim"></div>
+        <div class="dashboard-nav">
+            <div class="nav-btn" onclick="showView('reception-view')">RECEPTION</div>
+            <div class="nav-btn" onclick="showView('lobby-view')">HOME</div>
+            <div class="nav-btn active" onclick="showView('display-view')">DASHBOARD</div>
+        </div>
+
+        <div id="tpoint-grid" class="tpoint-grid">
+            <!-- Scan entries will appear here -->
+             <div class="tpoint-waiting-msg" style="color:rgba(255,255,255,0.2); font-family:'Bebas Neue'; font-size:3rem; letter-spacing:10px; margin-top:20vh;">AWAITING SCANS...</div>
+        </div>
+
+        <!-- Goal Celebration Overlay -->
+        <div id="goal-overlay">
+            <h1 class="goal-text">GOAL!</h1>
+            <div class="goal-player-name">PLAYER NAME</div>
+            
+            <div class="goal-scoring-tally">
+                <div class="tally-line">
+                    <span class="tally-label">BASE SCORE</span>
+                    <span class="tally-value val-plus" id="goal-base-val">+0</span>
+                </div>
+                <div class="tally-line">
+                    <span class="tally-label">STROKE PENALTY</span>
+                    <span class="tally-value val-minus" id="goal-penalty-val">-0</span>
+                </div>
+                <div class="tally-line">
+                    <span class="tally-label">BONUS POINTS</span>
+                    <span class="tally-value val-plus" id="goal-bonus-val">+0</span>
+                </div>
+                <div class="tally-divider"></div>
+                <div class="tally-line tally-total">
+                    <span class="tally-label">FINAL SCORE</span>
+                    <span class="tally-value" id="goal-total-val">0</span>
+                </div>
+            </div>
+
+            <div class="goal-confetti" id="goal-confetti"></div>
+        </div>
     </div>
 
     <script>
@@ -311,6 +557,7 @@
         let discoveredBalls = {}; 
         let verifiedDevices = new Set(); // Devices confirmed by the API
         let pendingPlayerName = null; // Name waiting to be linked to a ball
+        const LOOKUP_URL = "http://127.0.0.1:5002/lookup";
 
         const client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, CLIENT_ID);
 
@@ -319,20 +566,35 @@
             try {
                 const payloadStr = msg.payloadString;
 
-                // Handle NFC scan result from assigner device (ID4)
+                // ── BONUS: NFC scan on Device ID3 ────────────────────────────
+                if (msg.destinationName === "3/nfc-light/controller/res") {
+                    handleBonusScan(payloadStr);
+                    return;
+                }
+
+                // ── GOAL: NFC scan on Device ID2 ────────────────────────────
+                if (msg.destinationName === "2/nfc-light/controller/res") {
+                    handleGoalScan(payloadStr);
+                    return;
+                }
+
+                // ── T-POINT: NFC scan on Device ID1 ──────────────────────────
+                if (msg.destinationName === "1/nfc-light/controller/res") {
+                    handleTPointScan(payloadStr);
+                    return;
+                }
+
+                // ── ASSIGNER: NFC scan on Device ID4 ─────────────────────────
                 if (msg.destinationName === "4/nfc-light/controller/res") {
                     if (pendingPlayerName) {
                         const status = document.getElementById('assign-status');
-
-                        // Send assignment to Python backend via MQTT
                         const assignPayload = JSON.stringify({
                             name: pendingPlayerName,
-                            scanned_data: payloadStr  // NFC tag content (e.g. device ID string)
+                            scanned_data: payloadStr
                         });
                         const assignMsg = new Paho.MQTT.Message(assignPayload);
                         assignMsg.destinationName = ASSIGN_TOPIC;
                         client.send(assignMsg);
-
                         status.innerText = `✅ ${pendingPlayerName.toUpperCase()} REGISTERED! SCANNING: "${payloadStr}"...`;
                         status.style.color = "#00ff00";
                         document.getElementById('player-name').value = "";
@@ -341,39 +603,133 @@
                     return;
                 }
 
-                // Handle JSON stroke data
+                // ── Stroke count JSON ─────────────────────────────────────────
                 const data = JSON.parse(payloadStr);
                 const id = data.device;
                 const count = data.count;
 
-                // 1. Only process if the API has seen this device (prevents public ghosts)
                 if (!verifiedDevices.has(id)) return;
 
-                // 2. Update discovery record in real-time (preserve player_name)
                 if (!discoveredBalls[id]) {
                     discoveredBalls[id] = { device: id, count: count, player_name: "UNASSIGNED" };
                 } else {
                     discoveredBalls[id].count = count;
                 }
 
-                // 2. If in Lobby, refresh the grid immediately
+                // Update live dashboard cards if they exist in the grid
+                const idMatch = id.match(/id(\d+)/i);
+                if (idMatch) {
+                    const cardId = "tcard-ID" + idMatch[1];
+                    const existingCard = document.getElementById(cardId);
+                    if (existingCard) {
+                        const scoreDisplay = existingCard.querySelector('.tpoint-score-value');
+                        if (scoreDisplay) scoreDisplay.innerText = count;
+                    }
+                }
+
                 if (!activeBallId) {
                     renderLobby();
-                } 
-                // 3. If this is our selected ball, update display
-                else if (id === activeBallId) {
-                    updateScoreDisplay(count);
                 }
-            } catch(e) { console.log("JSON Parse Error"); }
+            } catch(e) { console.log("MQTT Parse Error:", e); }
         };
 
         client.connect({
             onSuccess: () => {
                 client.subscribe(MQTT_TOPIC);
-                client.subscribe("4/nfc-light/controller/res"); // Listen for NFC scan result
-                console.log("MQTT Socket Connected");
+                client.subscribe("1/nfc-light/controller/res"); // T-Point scans
+                client.subscribe("2/nfc-light/controller/res"); // Goal scans
+                client.subscribe("3/nfc-light/controller/res"); // Bonus scans
+                client.subscribe("4/nfc-light/controller/res"); // Assigner scans
+                console.log("MQTT Connected");
             }
         });
+
+        // ── T-Point scan handler ──────────────────────────────────────────────
+        async function handleTPointScan(rawNfcContent) {
+            console.log("[T-POINT] Scan received:", rawNfcContent);
+            const grid = document.getElementById('tpoint-grid');
+            
+            // Remove waiting message if it exists
+            const waitingMsg = grid.querySelector('.tpoint-waiting-msg');
+            if (waitingMsg) waitingMsg.remove();
+
+            // Create temporary "Looking up" card
+            const tempCard = document.createElement('div');
+            tempCard.className = 'tpoint-card';
+            tempCard.innerHTML = `
+                <div class="tpoint-station"><span class="tpoint-status-dot"></span>T-POINT · DEVICE ID1</div>
+                <div class="tpoint-label">Scanning...</div>
+                <div class="tpoint-player" style="font-size:2rem; color:rgba(255,255,255,0.3);">LOADING...</div>
+                <div class="tpoint-ball">RAW: ${rawNfcContent}</div>
+            `;
+            grid.prepend(tempCard);
+
+            try {
+                const res = await fetch(LOOKUP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scanned_data: rawNfcContent, do_reset: true })
+                });
+
+                if (!res.ok) throw new Error("Not found");
+
+                const result = await res.json();
+                const name = (result.player_name || "UNASSIGNED").toUpperCase();
+                const ballId = (result.ball_id || "").toUpperCase();
+                const count = result.count || 0;
+                const cardId = "tcard-" + ballId;
+                const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                // CHECK FOR DUPLICATE
+                const existing = document.getElementById(cardId);
+                if (existing) {
+                    existing.querySelector('.tpoint-player').innerText = name;
+                    existing.querySelector('.tpoint-score-value').innerText = count;
+                    existing.querySelector('.tpoint-time').innerText = timeStr;
+                    grid.prepend(existing);
+                    existing.classList.remove('pulse');
+                    void existing.offsetWidth;
+                    existing.classList.add('pulse');
+                    tempCard.remove();
+                } else {
+                    tempCard.id = cardId;
+                    tempCard.innerHTML = `
+                        <div class="tpoint-card-header">
+                            <div class="tpoint-station-label"><span class="tpoint-status-dot"></span>STATION 1</div>
+                            <div class="tpoint-time">${timeStr}</div>
+                        </div>
+                        <div class="tpoint-player">${name}</div>
+                        <div class="tpoint-score-box">
+                            <span class="tpoint-score-label">FINAL SCORE</span>
+                            <div class="tpoint-score-value">${count}</div>
+                            <div class="tpoint-ball-badge">${ballId}</div>
+                        </div>
+                    `;
+                    tempCard.classList.add('pulse');
+                }
+
+            } catch (err) {
+                const errorId = "error-" + rawNfcContent;
+                const existingError = document.getElementById(errorId);
+                if (existingError) {
+                    grid.prepend(existingError);
+                    tempCard.remove();
+                } else {
+                    tempCard.id = errorId;
+                    tempCard.innerHTML = `
+                        <div class="tpoint-card-header">
+                            <div class="tpoint-station-label"><span class="tpoint-status-dot" style="background:#ff6b6b;"></span>ERROR</div>
+                            <div class="tpoint-time">SYSTEM</div>
+                        </div>
+                        <div class="tpoint-player" style="color:#ff6b6b; font-size:2rem;">UNKNOWN</div>
+                        <div class="tpoint-score-box">
+                            <span class="tpoint-score-label">RAW DATA</span>
+                            <div class="tpoint-score-value" style="font-size:2rem;">${rawNfcContent}</div>
+                        </div>
+                    `;
+                }
+            }
+        }
 
         // Start discovery immediately (don't wait for MQTT)
         startDiscovery();
@@ -479,11 +835,9 @@
             const displayName = id.replace(/^esp32c3-/i, '').toUpperCase();
             const playerName = discoveredBalls[id].player_name || "GUEST";
             document.getElementById('active-id-label').innerText = `${displayName} | ${playerName}`;
-            document.getElementById('count').innerText = discoveredBalls[id].count;
             
-            // Transition Views
-            document.getElementById('lobby-view').classList.remove('active');
-            document.getElementById('display-view').classList.add('active');
+            // Use showView so nav buttons stay visible
+            showView('display-view');
 
             // Fullscreen trigger
             const doc = document.documentElement;
@@ -508,6 +862,128 @@
             ballEl.classList.remove('animate-shot');
             void ballEl.offsetWidth; // Force reflow
             ballEl.classList.add('animate-shot');
+        }
+
+        // ── Goal scan handler ──────────────────────────────────────────────
+        async function handleGoalScan(rawNfcContent) {
+            console.log("[GOAL] Scan received:", rawNfcContent);
+            try {
+                const res = await fetch(LOOKUP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scanned_data: rawNfcContent, do_reset: false })
+                });
+                if (!res.ok) return;
+
+                const result = await res.json();
+                const name = (result.player_name || "UNASSIGNED").toUpperCase();
+                const ballId = (result.ball_id || "").toUpperCase();
+                const count = result.count || 0;
+                const hasBonus = result.bonus || false;
+                
+                showGoalCelebration(name, ballId, count, hasBonus);
+            } catch (err) { console.log("Goal Lookup Error:", err); }
+        }
+
+        function showGoalCelebration(playerName, ballId, finalScore, hasBonus = false) {
+            const overlay = document.getElementById('goal-overlay');
+            const tally = overlay.querySelector('.goal-scoring-tally');
+            const overlayPlayer = overlay.querySelector('.goal-player-name');
+            const cardId = "tcard-" + ballId;
+            const originalCard = document.getElementById(cardId);
+
+            // Calculations
+            const basePoints = 100;
+            const penalty = finalScore * 5;
+            const bonus = hasBonus ? 50 : 0;
+            const total = basePoints + bonus - penalty;
+
+            overlayPlayer.innerText = playerName;
+            overlay.style.display = 'flex';
+            overlay.classList.remove('content-active');
+            tally.classList.remove('active');
+
+            // 1. Enlarge Card Immediately
+            if (originalCard) {
+                originalCard.classList.add('winner-card-celebrate');
+                originalCard.querySelector('.tpoint-score-value').innerText = finalScore;
+            }
+
+            // 2. Minimize after 1.5s
+            setTimeout(() => {
+                if (originalCard) originalCard.classList.remove('winner-card-celebrate');
+            }, 1500);
+
+            // 3. Show Goal Text and Tally after card is out of the way (at 2.1s)
+            setTimeout(() => {
+                overlay.classList.add('content-active');
+                tally.classList.add('active');
+
+                // Start Tally Animation
+                animateValue("goal-base-val", 0, basePoints, 1000, "+");
+                setTimeout(() => animateValue("goal-penalty-val", 0, penalty, 1000, "-"), 500);
+                setTimeout(() => animateValue("goal-bonus-val", 0, bonus, 1000, "+"), 1000);
+                setTimeout(() => animateValue("goal-total-val", 0, total, 1500), 1500);
+            }, 2100);
+
+            // After 10 seconds total, clear celebration and REMOVE PLAYER
+            setTimeout(() => {
+                overlay.style.opacity = '0';
+                
+                if (originalCard) {
+                    originalCard.classList.remove('winner-card-celebrate');
+                    // Add exit animation
+                    originalCard.classList.add('card-exit');
+                    
+                    // Remove from DOM after animation
+                    setTimeout(() => {
+                        originalCard.remove();
+                        // Also clear from local memory if desired
+                        // delete discoveredBalls[ballId]; 
+                    }, 800);
+                }
+
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    overlay.style.opacity = '1';
+                }, 500);
+            }, 10000);
+        }
+
+        async function handleBonusScan(rawNfcContent) {
+            console.log("[BONUS] Scan received (Silent):", rawNfcContent);
+            try {
+                await fetch("http://127.0.0.1:5002/record_bonus", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ scanned_data: rawNfcContent })
+                });
+            } catch (err) { console.log("Bonus Record Error:", err); }
+        }
+
+        function animateValue(id, start, end, duration, prefix = "") {
+            const obj = document.getElementById(id);
+            if (!obj) return;
+            const range = end - start;
+            const minTimer = 50;
+            let stepTime = Math.abs(Math.floor(duration / range));
+            stepTime = Math.max(stepTime, minTimer);
+            const startTime = new Date().getTime();
+            const endTime = startTime + duration;
+            let timer;
+
+            function run() {
+                const now = new Date().getTime();
+                const remaining = Math.max((endTime - now) / duration, 0);
+                const value = Math.round(end - (remaining * range));
+                obj.innerText = prefix + value;
+                if (value == end) {
+                    clearInterval(timer);
+                }
+            }
+
+            timer = setInterval(run, stepTime);
+            run();
         }
     </script>
 

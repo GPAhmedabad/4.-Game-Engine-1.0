@@ -24,7 +24,8 @@ PLAYER_ASSIGN_TOPIC = "golf/player/assign/v2"
 # --- Global State for High-Speed Access ---
 ball_cache = {} 
 pending_player_name = None 
-
+mqtt_client = None # Global MQTT client for publishing
+MQTT_COMMAND_TOPIC = "golf/stroke/command"
 # --- MongoDB Setup ---
 try:
     mongo_client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=2000)
@@ -124,12 +125,195 @@ def get_balls():
         if is_assigned or is_recent:
             display_balls.append(ball)
 
-    # 3. FILTER: Only show if it has been scanned on Station 1
-    global scanned_visible_ids
-    display_balls = [b for b in display_balls if b.get("device") in scanned_visible_ids]
-
     display_balls.sort(key=lambda x: (1 if x.get("player_name") else 0, str(x.get("timestamp") or "")), reverse=True)
     return jsonify(display_balls)
+
+@app.route('/lookup', methods=['POST'])
+def lookup_by_nfc():
+    """NFC sends raw number like '3' -> find ID3 in MongoDB assignments -> return player name."""
+    import re
+    data = request.get_json()
+    scanned = (data.get("scanned_data", "") if data else "").strip()
+    if not scanned:
+        return jsonify({"error": "No scanned_data provided"}), 400
+
+    scanned_lower = scanned.lower()
+    print(f"🔍 [LOOKUP] Raw NFC: '{scanned}'")
+
+    # Build the canonical ball ID from the raw scan
+    # "3"          -> "ID3"
+    # "id3"        -> "ID3"
+    # "esp32c3-id3" -> "ID3"
+    num_only = "".join(filter(str.isdigit, scanned_lower))
+    if num_only:
+        target_id = f"ID{num_only}"
+    else:
+        target_id = scanned_lower.split("-")[-1].upper()
+
+    print(f"🎯 [LOOKUP] Targeting: '{target_id}'")
+
+    # Go directly to MongoDB assignments — no ball_cache needed
+    assignment = None
+    if mongo_client:
+        # Try exact match: ball_id = "ID3"
+        assignment = db["assignments"].find_one(
+            {"ball_id": {"$regex": f"^{re.escape(target_id)}$", "$options": "i"}},
+            {"_id": 0}
+        )
+        # Fallback: any doc whose ball_id contains the digit(s)
+        if not assignment and num_only:
+            assignment = db["assignments"].find_one(
+                {"ball_id": {"$regex": num_only}},
+                {"_id": 0}
+            )
+
+    if not assignment:
+        print(f"❌ [LOOKUP] No assignment found for '{target_id}'")
+        return jsonify({"error": "Not registered", "scanned": scanned, "tried": target_id}), 404
+
+    player_name = assignment.get("player_name", "UNASSIGNED")
+    ball_id     = assignment.get("ball_id", target_id)
+    assigner    = assignment.get("assigner", "SYSTEM")
+
+    # Optional: resolve full device name from live cache
+    full_device = None
+    for bid in ball_cache:
+        if num_only and bid.lower().endswith(f"id{num_only}"):
+            full_device = bid
+            break
+
+    print(f"✅ [LOOKUP] {ball_id} -> '{player_name}'")
+
+    # Resolve target device ID
+    target_device = full_device or ball_id
+
+    # Get do_reset flag from request (default to True)
+    do_reset = data.get("do_reset", True) if data else True
+
+    # --- AUTO RESET LOGIC ---
+    current_count = 0
+    if target_device in ball_cache:
+        current_count = ball_cache[target_device].get("count", 0)
+
+    if do_reset and target_device:
+        reset_ball(target_device)
+        print(f"📊 [LOOKUP] {target_device} reset to 0 (T-Point).")
+        current_count = 0
+    else:
+        print(f"📊 [LOOKUP] {target_device} score is {current_count} (Goal/View).")
+
+    # Check for pending bonus in MongoDB
+    bonus_active = False
+    if mongo_client:
+        bonus_doc = db["assignments"].find_one({"ball_id": ball_id})
+        if bonus_doc and bonus_doc.get("bonus_pending"):
+            bonus_active = True
+            # Clear bonus once looked up (it's being "used" or it's a fresh start at T-Point)
+            db["assignments"].update_one({"ball_id": ball_id}, {"$set": {"bonus_pending": False}})
+            print(f"🎁 [LOOKUP] Bonus activated for {ball_id}")
+
+    return jsonify({
+        "ball_id":     ball_id,
+        "device":      target_device,
+        "player_name": player_name,
+        "assigner":    assigner,
+        "count":       current_count,
+        "bonus":       bonus_active
+    })
+
+def reset_ball(device_id):
+    """Sends RESET command to ESP32 and resets MongoDB/Cache."""
+    global mqtt_client
+    if not device_id: return
+
+    # 1. Send MQTT Reset Command (Exact match to user logic)
+    if mqtt_client:
+        try:
+            payload = {"cmd": "RESET", "device": device_id}
+            json_payload = json.dumps(payload, separators=(',', ':'))
+            mqtt_client.publish(MQTT_COMMAND_TOPIC, json_payload)
+            print(f"📡 [RESET] Sent to ESP32: {json_payload}")
+        except Exception as e:
+            print(f"❌ [RESET] MQTT Publish Error: {e}")
+
+    # 2. Reset MongoDB (Exact match to user logic)
+    if mongo_client:
+        try:
+            # We use the collection named after the device
+            db[device_id].update_one({"device": device_id}, {"$set": {"count": 0}})
+            print(f"💾 [RESET] Reset MongoDB: {device_id}")
+        except Exception as e:
+            print(f"⚠️ [RESET] MongoDB Reset Error: {e}")
+
+    # 3. Reset Cache
+    if device_id in ball_cache:
+        ball_cache[device_id]["count"] = 0
+        print(f"📥 [RESET] Cache Reset: {device_id}")
+
+@app.route('/record_bonus', methods=['POST'])
+def record_bonus():
+    data = request.get_json()
+    scanned = data.get("scanned_data", "")
+    if not scanned: return jsonify({"error": "No data"}), 400
+
+    print(f"🎁 [BONUS] 📥 NEW SCAN RECEIVED: '{scanned}'")
+
+    # Extract digits for fallback
+    num_only = "".join(filter(str.isdigit, scanned))
+    
+    if mongo_client:
+        # Fetch ALL assignments to do a manual fuzzy match if needed
+        all_assignments = list(db["assignments"].find({}, {"_id": 0}))
+        print(f"🎁 [BONUS] Checking against {len(all_assignments)} assignments...")
+        
+        match = None
+        
+        # 1. Try exact match (case insensitive)
+        for a in all_assignments:
+            bid = a.get("ball_id", "").upper()
+            if bid == scanned.upper():
+                match = a
+                print(f"🎁 [BONUS] Found Exact Match: {bid}")
+                break
+        
+        # 2. Try numeric match (if scan is '3' and ball is 'ID3')
+        if not match and num_only:
+            for a in all_assignments:
+                bid = a.get("ball_id", "")
+                bid_nums = "".join(filter(str.isdigit, bid))
+                if bid_nums == num_only:
+                    match = a
+                    print(f"🎁 [BONUS] Found Numeric Match: {bid} (via {num_only})")
+                    break
+        
+        # 3. Try partial match (if '3' is inside 'ID3')
+        if not match:
+            for a in all_assignments:
+                bid = a.get("ball_id", "").upper()
+                if scanned.upper() in bid or bid in scanned.upper():
+                    match = a
+                    print(f"🎁 [BONUS] Found Partial Match: {bid}")
+                    break
+
+        if match:
+            real_ball_id = match.get("ball_id")
+            player_name = match.get("player_name", "UNKNOWN")
+            
+            # Mark it
+            db["assignments"].update_one(
+                {"ball_id": real_ball_id},
+                {"$set": {"bonus_pending": True}}
+            )
+            
+            print(f"✅ [BONUS] SUCCESS: {player_name} ({real_ball_id}) awarded bonus!")
+            return jsonify({
+                "status": "Bonus recorded",
+                "ball": real_ball_id,
+                "player": player_name
+            })
+    
+    print(f"❌ [BONUS] FAILED: No player found for scan '{scanned}'")
+    return jsonify({"error": "Ball not assigned"}), 404
 
 @app.route('/assign_player', methods=['POST'])
 def assign_player():
@@ -270,34 +454,43 @@ def on_message(client, userdata, msg):
             return
 
 
-        data = json.loads(payload)
-        
-        device_id = data.get("device", "unknown")
-        data["timestamp"] = datetime.now(timezone.utc).isoformat()
-        
-        # Update high-speed cache
-        ball_cache[device_id] = data
-        
-        if mongo_client:
-            # This logic ensures only ONE document exists for this device collection
-            db[device_id].update_one(
-                {"device": device_id}, 
-                {"$set": data}, 
-                upsert=True
-            )
-            print(f"🔄 Count Updated: {device_id} -> {data['count']}")
+        # Final fallback: Try to parse as JSON for device updates
+        try:
+            data = json.loads(payload)
+            if not isinstance(data, dict):
+                # If it's just a number or string, it's not a device update payload
+                return
+            
+            device_id = data.get("device", "unknown")
+            data["timestamp"] = datetime.now(timezone.utc).isoformat()
+            
+            # Update high-speed cache
+            ball_cache[device_id] = data
+            
+            if mongo_client:
+                # This logic ensures only ONE document exists for this device collection
+                db[device_id].update_one(
+                    {"device": device_id}, 
+                    {"$set": data}, 
+                    upsert=True
+                )
+                print(f"🔄 Count Updated: {device_id} -> {data.get('count', 0)}")
+        except json.JSONDecodeError:
+            # Not a JSON message, ignore or log if necessary
+            pass
             
     except Exception as e:
         print(f"❌ MQTT Processing Error: {e}")
 
 def run_mqtt():
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    client.on_connect = on_connect
-    client.on_message = on_message
+    global mqtt_client
+    mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    mqtt_client.on_connect = on_connect
+    mqtt_client.on_message = on_message
     print("🚀 Starting MQTT Listener...")
     try:
-        client.connect(MQTT_BROKER, MQTT_PORT, 60)
-        client.loop_forever()
+        mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        mqtt_client.loop_forever()
     except Exception as e:
         print(f"❌ MQTT Connection Error: {e}")
 
