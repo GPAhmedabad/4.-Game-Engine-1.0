@@ -549,15 +549,21 @@
         const MQTT_HOST = "broker.hivemq.com";
         const MQTT_PORT = 8000; 
         const MQTT_TOPIC = "golf/stroke/count";
-        const API_URL = "http://127.0.0.1:5002/balls";
         const ASSIGN_TOPIC = "golf/player/assign/v2"; // New topic for assignments
         const CLIENT_ID = "pro_clubhouse_" + Math.random().toString(16).slice(2, 10);
+
+        // --- API CONFIGURATION ---
+        // Change these to your Render URL after deployment (e.g., https://your-app.onrender.com)
+        const BASE_API_URL = "http://127.0.0.1:5002"; 
+        
+        const API_URL = `${BASE_API_URL}/balls`;
+        const LOOKUP_URL = `${BASE_API_URL}/lookup`;
+        const BONUS_RECORD_URL = `${BASE_API_URL}/record_bonus`;
 
         let activeBallId = null;
         let discoveredBalls = {}; 
         let verifiedDevices = new Set(); // Devices confirmed by the API
         let pendingPlayerName = null; // Name waiting to be linked to a ball
-        const LOOKUP_URL = "http://127.0.0.1:5002/lookup";
 
         const client = new Paho.MQTT.Client(MQTT_HOST, MQTT_PORT, CLIENT_ID);
 
@@ -953,7 +959,7 @@
         async function handleBonusScan(rawNfcContent) {
             console.log("[BONUS] Scan received (Silent):", rawNfcContent);
             try {
-                await fetch("http://127.0.0.1:5002/record_bonus", {
+                await fetch(BONUS_RECORD_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ scanned_data: rawNfcContent })

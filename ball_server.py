@@ -15,7 +15,7 @@ MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
 MQTT_TOPIC = "golf/stroke/count"
 
-MONGO_URI = "mongodb://localhost:27017/"
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
 DB_NAME = "golf_ball_db"
 COLLECTION_NAME = "active_devices"
 ASSIGNER_RES_TOPIC = "4/nfc-light/controller/res"
@@ -500,5 +500,5 @@ if __name__ == "__main__":
     mqtt_thread.start()
 
     # Start Flask API
-    print("🌐 Starting API Server on http://localhost:5002")
-    app.run(host='0.0.0.0', port=5002, debug=False)
+    print(f"🌐 Starting Cloud API Server on port {PORT}")
+    app.run(host='0.0.0.0', port=PORT, debug=False)
